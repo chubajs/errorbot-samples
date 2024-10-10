@@ -24,7 +24,7 @@ The request body should be a JSON object with the following properties:
 
 | Property | Type   | Required | Description                                                                           |
 |----------|--------|----------|---------------------------------------------------------------------------------------|
-| message  | string | Yes      | The error message to report. Maximum length is 200 characters.                        |
+| message  | string | Yes      | The error message to report. Maximum length is 1000 characters.                       |
 | type     | string | No       | The type of the error. Must be 'error', 'warning', or 'silent'. Defaults to 'error'.  |
 | project  | string | No       | The name of the project where the error occurred.                                     |
 
@@ -32,36 +32,41 @@ The request body should be a JSON object with the following properties:
 
 The API will respond with a JSON object containing:
 
-- `success`: A boolean indicating whether the error was successfully reported.
-- `message`: A success message if the error was reported successfully.
-- `error`: An error message if the request failed.
-- `data`: The error object as stored in the database (if successful).
+- `success`: A boolean value indicating whether the request was successful.
+- `error`: An object containing error details (only present if `success` is `false`):
+  - `code`: A string representing the error code.
+  - `message`: A string describing the error.
 
-## Error Codes
+## Error Codes and Messages
 
-| HTTP Status Code | Description                               |
-|------------------|-------------------------------------------|
-| 200              | Success                                   |
-| 400              | Bad Request (invalid parameters)          |
-| 401              | Unauthorized (invalid or missing API key) |
-| 429              | Rate Limit Exceeded                       |
-| 500              | Internal Server Error                     |
+| Error Code                | Description                                                                    |
+|---------------------------|--------------------------------------------------------------------------------|
+| ERR_MISSING_API_KEY       | The X-API-Key header is missing.                                               |
+| ERR_INVALID_API_KEY       | The provided API key is not valid or has been deactivated.                     |
+| ERR_RATE_LIMIT_EXCEEDED   | The number of requests has exceeded the allowed limit.                         |
+| ERR_MISSING_ERROR_MESSAGE | The 'message' field is missing from the request body.                        |
+| ERR_INVALID_ERROR_TYPE    | The 'type' field must be 'error', 'warning', or 'silent'.                      |
+| ERR_MESSAGE_TOO_LONG      | The provided error message exceeds the maximum length of 1000 characters.      |
+| ERR_FAILED_TO_SAVE        | An internal server error occurred while saving the error.                      |
+| ERR_UNEXPECTED            | An unexpected error occurred.                                                  |
 
-## Possible Error Messages
+## Example Error Response
 
-- **Missing API key**: The X-API-Key header is missing.
-- **Invalid or inactive API key**: The provided API key is not valid or has been deactivated.
-- **Missing error message**: The 'message' field is missing from the request body.
-- **Error message exceeds maximum length of 200 characters**: The provided error message is too long.
-- **Invalid error type**: The 'type' field must be 'error', 'warning', or 'silent'.
-- **Failed to save error**: An internal server error occurred while saving the error.
-- **An unexpected error occurred**: A generic error message for any other unexpected errors.
+```json
+{
+  "success": false,
+  "error": {
+    "code": "ERR_INVALID_API_KEY",
+    "message": "The provided API key is not valid or has been deactivated."
+  }
+}
+```
 
-## Example Usage
-
-Here are examples of how to use the ErrorBot API in different programming languages:
+## Integration Examples
 
 ### Python
+
+```python
 import requests
 import json
 
@@ -76,96 +81,99 @@ def report_error(message, error_type='error', project=None):
         'type': error_type,
         'project': project
     }
-
+    
     try:
         response = requests.post(url, headers=headers, json=data)
         response.raise_for_status()
         result = response.json()
+        
         if result['success']:
-            print(f"Error reported successfully: {result['message']}")
-            print(f"Error details: {json.dumps(result['data'], indent=2)}")
+            print(f"Error reported successfully")
         else:
-            print(f"Failed to report error: {result.get('error', 'Unknown error')}")
+            print(f"Failed to report error: {result['error']['message']}")
     except requests.exceptions.RequestException as e:
         print(f"An error occurred while reporting the error: {e}")
 
 # Example usage
 report_error("Division by zero error occurred", error_type='error', project='Calculator App')
 report_error("User attempted to access restricted area", error_type='warning', project='Auth Service')
+```
 
-### Node.js
-// Node.js example using axios
+### JavaScript (Node.js)
+
+```javascript
 const axios = require('axios');
 
 async function reportError(message, errorType = 'error', project = null) {
-  const url = 'https://errorbot.fyi/api/v1/report';
-  const headers = {
-    'Content-Type': 'application/json',
-    'X-API-Key': 'YOUR_API_KEY_HERE'
-  };
-  const data = {
-    message,
-    type: errorType,
-    project
-  };
+    const url = 'https://errorbot.fyi/api/v1/report';
+    const headers = {
+        'Content-Type': 'application/json',
+        'X-API-Key': 'YOUR_API_KEY_HERE'
+    };
+    const data = {
+        message,
+        type: errorType,
+        project
+    };
 
-  try {
-    const response = await axios.post(url, data, { headers });
-    if (response.data.success) {
-      console.log(`Error reported successfully: ${response.data.message}`);
-      console.log('Error details:', JSON.stringify(response.data.data, null, 2));
-    } else {
-      console.error(`Failed to report error: ${response.data.error || 'Unknown error'}`);
+    try {
+        const response = await axios.post(url, data, { headers });
+        if (response.data.success) {
+            console.log('Error reported successfully');
+        } else {
+            console.error(`Failed to report error: ${response.data.error.message}`);
+        }
+    } catch (error) {
+        console.error('An error occurred while reporting the error:', error.message);
+        if (error.response) {
+            console.error('Error response:', error.response.data);
+        }
     }
-  } catch (error) {
-    console.error('An error occurred while reporting the error:', error.message);
-    if (error.response) {
-      console.error('Error response:', error.response.data);
-    }
-  }
-}
-
-### Frontend JavaScript
-
-// Frontend JavaScript example using fetch
-async function reportError(message, errorType = 'error', project = null) {
-  const url = 'https://errorbot.fyi/api/v1/report';
-  const headers = {
-    'Content-Type': 'application/json',
-    'X-API-Key': 'YOUR_API_KEY_HERE'
-  };
-  const data = {
-    message,
-    type: errorType,
-    project
-  };
-
-  try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: headers,
-      body: JSON.stringify(data)
-    });
-    const result = await response.json();
-    if (result.success) {
-      console.log(`Error reported successfully: ${result.message}`);
-      console.log('Error details:', JSON.stringify(result.data, null, 2));
-    } else {
-      console.error(`Failed to report error: ${result.error || 'Unknown error'}`);
-    }
-  } catch (error) {
-    console.error('An error occurred while reporting the error:', error.message);
-  }
 }
 
 // Example usage
 reportError('User form submission failed', 'error', 'User Management');
 reportError('High server load detected', 'warning', 'Server Monitoring');
+```
 
+### JavaScript (Browser)
+
+```javascript
+async function reportError(message, errorType = 'error', project = null) {
+    const url = 'https://errorbot.fyi/api/v1/report';
+    const headers = {
+        'Content-Type': 'application/json',
+        'X-API-Key': 'YOUR_API_KEY_HERE'
+    };
+    const data = {
+        message,
+        type: errorType,
+        project
+    };
+
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify(data)
+        });
+        const result = await response.json();
+        if (result.success) {
+            console.log('Error reported successfully');
+        } else {
+            console.error(`Failed to report error: ${result.error.message}`);
+        }
+    } catch (error) {
+        console.error('An error occurred while reporting the error:', error.message);
+    }
+}
+
+// Example usage
+reportError('User form submission failed', 'error', 'User Management');
+reportError('High server load detected', 'warning', 'Server Monitoring');
+```
 
 ## Tips and Tricks for Integrating ErrorBot in Small Private Projects
-
-Integrating ErrorBot into your small private projects can significantly enhance your ability to detect, diagnose, and resolve errors quickly. Here are some best practices to help you make the most out of ErrorBot in Python, Node.js, and JavaScript applications.
 
 ### 1. Automatically Capture Unhandled Exceptions
 
@@ -292,149 +300,93 @@ Wrap critical sections of your code with try-catch blocks to handle and report e
 
 Ensure that error messages do not contain sensitive data such as passwords, API keys, or personal user information.
 
-- **Best Practice**
-  - Sanitize error messages before sending.
-  - Use generic messages if necessary.
-  - Review error logs regularly to ensure compliance.
-
 ### 5. Implement Rate Limiting
 
 Prevent flooding ErrorBot with duplicate errors by implementing rate limiting or deduplication logic.
 
-- **Example**
+```javascript
+let errorCache = new Set();
 
-  ```javascript
-  let errorCache = new Set();
-
-  function reportErrorWithRateLimiting(message, type, project) {
-    if (!errorCache.has(message)) {
-      errorCache.add(message);
-      reportError(message, type, project);
-      setTimeout(() => errorCache.delete(message), 60000); // Clear after 1 minute
-    }
+function reportErrorWithRateLimiting(message, type, project) {
+  if (!errorCache.has(message)) {
+    errorCache.add(message);
+    reportError(message, type, project);
+    setTimeout(() => errorCache.delete(message), 60000); // Clear after 1 minute
   }
-  ```
+}
+```
 
 ### 6. Include Contextual Information
 
 Enhance error reports with additional context to make debugging easier.
 
-- **Include**
-  - Environment details (development, staging, production)
-  - User ID or session ID (if applicable and compliant with privacy laws)
-  - Timestamp of the error occurrence
-  - Module or function name where the error occurred
+```python
+import platform
+import datetime
 
-- **Example**
-
-  ```python
-  import platform
-  import datetime
-
-  def report_error(message, error_type='error', project=None):
-      context = {
-          'timestamp': datetime.datetime.utcnow().isoformat(),
-          'environment': 'production',
-          'platform': platform.platform(),
-      }
-      full_message = f"{message} | Context: {context}"
-      # Proceed to send the error report as before
-  ```
+def report_error(message, error_type='error', project=None):
+    context = {
+        'timestamp': datetime.datetime.utcnow().isoformat(),
+        'environment': 'production',
+        'platform': platform.platform(),
+    }
+    full_message = f"{message} | Context: {context}"
+    # Proceed to send the error report as before
+```
 
 ### 7. Test Your Integration
 
 Regularly test your error reporting setup to ensure that errors are being captured and reported as expected.
 
-- **Testing Tips**
-  - Intentionally trigger errors in a controlled environment.
-  - Verify that the errors appear in ErrorBot with correct details.
-  - Check for any missing or incorrect information.
-
 ### 8. Categorize Errors Effectively
 
 Use the `type` field to categorize errors, which can help in filtering and prioritizing issues.
-
-- **Types**
-  - `error`: For critical issues that need immediate attention.
-  - `warning`: For non-critical issues that should be monitored.
-  - `silent`: For informational purposes without alerting.
 
 ### 9. Monitor and Act on Reports
 
 Regularly review the error reports from ErrorBot and establish a process for addressing them.
 
-- **Best Practices**
-  - Set up notifications or alerts for new errors.
-  - Assign responsibility for monitoring error reports.
-  - Create a feedback loop to fix reported issues promptly.
-
 ### 10. Keep the ErrorBot API Key Secure
 
 Protect your API key to prevent unauthorized use.
-
-- **Security Tips**
-  - Do not hard-code the API key in your codebase.
-  - Use environment variables or secure key management services.
-  - Avoid exposing the API key in client-side code (e.g., frontend JavaScript).
 
 ### 11. Handle Network Failures Gracefully
 
 Ensure that your application handles cases where ErrorBot's API might be unreachable.
 
-- **Example**
-
-  ```python
-  try:
-      # Attempt to report the error
-      report_error("An error occurred")
-  except requests.exceptions.RequestException as e:
-      # Log locally or take alternative actions
-      print(f"Failed to report error to ErrorBot: {e}")
-  ```
+```python
+try:
+    # Attempt to report the error
+    report_error("An error occurred")
+except requests.exceptions.RequestException as e:
+    # Log locally or take alternative actions
+    print(f"Failed to report error to ErrorBot: {e}")
+```
 
 ### 12. Stay Updated with ErrorBot's API Changes
 
 Keep an eye on any updates or changes to the ErrorBot API to maintain compatibility.
 
-- **Action Items**
-  - Subscribe to ErrorBot's developer newsletter or RSS feed.
-  - Regularly review the API documentation for updates.
-  - Update your integration code as needed.
-
 ### 13. Optimize for Performance
 
 Ensure that error reporting does not significantly impact your application's performance.
-
-- **Performance Tips**
-  - Use asynchronous calls to report errors without blocking the main thread.
-  - Batch multiple errors together if appropriate.
-  - Monitor the overhead introduced by error reporting.
 
 ### 14. Provide User Feedback When Appropriate
 
 In user-facing applications, consider informing users when an error has occurred.
 
-- **Example**
-
-  ```javascript
-  try {
-    // Code that may throw an error
-  } catch (error) {
-    reportError(error.message, 'error', 'Your Project Name');
-    alert('An unexpected error occurred. Please try again later.');
-  }
-  ```
+```javascript
+try {
+  // Code that may throw an error
+} catch (error) {
+  reportError(error.message, 'error', 'Your Project Name');
+  alert('An unexpected error occurred. Please try again later.');
+}
+```
 
 ### 15. Customize Error Messages
 
 Make error messages as informative as possible without exposing sensitive details.
-
-- **Tips**
-  - Include error codes or identifiers.
-  - Provide suggestions for possible fixes if applicable.
-  - Avoid technical jargon that may not be helpful.
-
-By following these best practices, you can efficiently integrate ErrorBot into your projects and maintain a robust error monitoring system that helps you improve your application's reliability and user experience.
 
 ---
 
