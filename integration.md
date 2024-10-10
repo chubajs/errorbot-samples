@@ -1,8 +1,173 @@
-# Tips and Tricks for Integrating ErrorBot in Small Private Projects
+# ErrorBot API Integration Guide
+
+This guide provides detailed information on how to integrate ErrorBot's error reporting API into your application.
+
+## API Endpoint
+
+- **URL**: `https://errorbot.fyi/api/v1/report`
+- **Method**: POST
+
+## Authentication
+
+All requests to the ErrorBot API must include an API key in the `X-API-Key` header.
+
+## Request Headers
+
+- `Content-Type: application/json`
+- `X-API-Key: YOUR_API_KEY_HERE`
+
+Replace `YOUR_API_KEY_HERE` with your actual ErrorBot API key.
+
+## Request Body
+
+The request body should be a JSON object with the following properties:
+
+| Property | Type   | Required | Description                                                                           |
+|----------|--------|----------|---------------------------------------------------------------------------------------|
+| message  | string | Yes      | The error message to report. Maximum length is 200 characters.                        |
+| type     | string | No       | The type of the error. Must be 'error', 'warning', or 'silent'. Defaults to 'error'.  |
+| project  | string | No       | The name of the project where the error occurred.                                     |
+
+## Response
+
+The API will respond with a JSON object containing:
+
+- `success`: A boolean indicating whether the error was successfully reported.
+- `message`: A success message if the error was reported successfully.
+- `error`: An error message if the request failed.
+- `data`: The error object as stored in the database (if successful).
+
+## Error Codes
+
+| HTTP Status Code | Description                               |
+|------------------|-------------------------------------------|
+| 200              | Success                                   |
+| 400              | Bad Request (invalid parameters)          |
+| 401              | Unauthorized (invalid or missing API key) |
+| 429              | Rate Limit Exceeded                       |
+| 500              | Internal Server Error                     |
+
+## Possible Error Messages
+
+- **Missing API key**: The X-API-Key header is missing.
+- **Invalid or inactive API key**: The provided API key is not valid or has been deactivated.
+- **Missing error message**: The 'message' field is missing from the request body.
+- **Error message exceeds maximum length of 200 characters**: The provided error message is too long.
+- **Invalid error type**: The 'type' field must be 'error', 'warning', or 'silent'.
+- **Failed to save error**: An internal server error occurred while saving the error.
+- **An unexpected error occurred**: A generic error message for any other unexpected errors.
+
+## Example Usage
+
+Here are examples of how to use the ErrorBot API in different programming languages:
+
+### Python
+import requests
+import json
+
+def report_error(message, error_type='error', project=None):
+    url = 'https://errorbot.fyi/api/v1/report'
+    headers = {
+        'Content-Type': 'application/json',
+        'X-API-Key': 'YOUR_API_KEY_HERE'
+    }
+    data = {
+        'message': message,
+        'type': error_type,
+        'project': project
+    }
+
+    try:
+        response = requests.post(url, headers=headers, json=data)
+        response.raise_for_status()
+        result = response.json()
+        if result['success']:
+            print(f"Error reported successfully: {result['message']}")
+            print(f"Error details: {json.dumps(result['data'], indent=2)}")
+        else:
+            print(f"Failed to report error: {result.get('error', 'Unknown error')}")
+    except requests.exceptions.RequestException as e:
+        print(f"An error occurred while reporting the error: {e}")
+
+# Example usage
+report_error("Division by zero error occurred", error_type='error', project='Calculator App')
+report_error("User attempted to access restricted area", error_type='warning', project='Auth Service')
+
+### Node.js
+// Node.js example using axios
+const axios = require('axios');
+
+async function reportError(message, errorType = 'error', project = null) {
+  const url = 'https://errorbot.fyi/api/v1/report';
+  const headers = {
+    'Content-Type': 'application/json',
+    'X-API-Key': 'YOUR_API_KEY_HERE'
+  };
+  const data = {
+    message,
+    type: errorType,
+    project
+  };
+
+  try {
+    const response = await axios.post(url, data, { headers });
+    if (response.data.success) {
+      console.log(`Error reported successfully: ${response.data.message}`);
+      console.log('Error details:', JSON.stringify(response.data.data, null, 2));
+    } else {
+      console.error(`Failed to report error: ${response.data.error || 'Unknown error'}`);
+    }
+  } catch (error) {
+    console.error('An error occurred while reporting the error:', error.message);
+    if (error.response) {
+      console.error('Error response:', error.response.data);
+    }
+  }
+}
+
+### Frontend JavaScript
+
+// Frontend JavaScript example using fetch
+async function reportError(message, errorType = 'error', project = null) {
+  const url = 'https://errorbot.fyi/api/v1/report';
+  const headers = {
+    'Content-Type': 'application/json',
+    'X-API-Key': 'YOUR_API_KEY_HERE'
+  };
+  const data = {
+    message,
+    type: errorType,
+    project
+  };
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify(data)
+    });
+    const result = await response.json();
+    if (result.success) {
+      console.log(`Error reported successfully: ${result.message}`);
+      console.log('Error details:', JSON.stringify(result.data, null, 2));
+    } else {
+      console.error(`Failed to report error: ${result.error || 'Unknown error'}`);
+    }
+  } catch (error) {
+    console.error('An error occurred while reporting the error:', error.message);
+  }
+}
+
+// Example usage
+reportError('User form submission failed', 'error', 'User Management');
+reportError('High server load detected', 'warning', 'Server Monitoring');
+
+
+## Tips and Tricks for Integrating ErrorBot in Small Private Projects
 
 Integrating ErrorBot into your small private projects can significantly enhance your ability to detect, diagnose, and resolve errors quickly. Here are some best practices to help you make the most out of ErrorBot in Python, Node.js, and JavaScript applications.
 
-## 1. Automatically Capture Unhandled Exceptions
+### 1. Automatically Capture Unhandled Exceptions
 
 Implement global error handlers to catch unhandled exceptions and report them to ErrorBot.
 
@@ -51,7 +216,7 @@ Implement global error handlers to catch unhandled exceptions and report them to
   };
   ```
 
-## 2. Integrate with Logging Libraries
+### 2. Integrate with Logging Libraries
 
 Leverage existing logging frameworks to send error logs to ErrorBot.
 
@@ -98,7 +263,7 @@ Leverage existing logging frameworks to send error logs to ErrorBot.
   logger.info("This info message will NOT be sent to ErrorBot");
   ```
 
-## 3. Use Try-Catch Blocks Strategically
+### 3. Use Try-Catch Blocks Strategically
 
 Wrap critical sections of your code with try-catch blocks to handle and report exceptions gracefully.
 
@@ -123,7 +288,7 @@ Wrap critical sections of your code with try-catch blocks to handle and report e
   }
   ```
 
-## 4. Avoid Sending Sensitive Information
+### 4. Avoid Sending Sensitive Information
 
 Ensure that error messages do not contain sensitive data such as passwords, API keys, or personal user information.
 
@@ -132,7 +297,7 @@ Ensure that error messages do not contain sensitive data such as passwords, API 
   - Use generic messages if necessary.
   - Review error logs regularly to ensure compliance.
 
-## 5. Implement Rate Limiting
+### 5. Implement Rate Limiting
 
 Prevent flooding ErrorBot with duplicate errors by implementing rate limiting or deduplication logic.
 
@@ -150,7 +315,7 @@ Prevent flooding ErrorBot with duplicate errors by implementing rate limiting or
   }
   ```
 
-## 6. Include Contextual Information
+### 6. Include Contextual Information
 
 Enhance error reports with additional context to make debugging easier.
 
@@ -176,7 +341,7 @@ Enhance error reports with additional context to make debugging easier.
       # Proceed to send the error report as before
   ```
 
-## 7. Test Your Integration
+### 7. Test Your Integration
 
 Regularly test your error reporting setup to ensure that errors are being captured and reported as expected.
 
@@ -185,7 +350,7 @@ Regularly test your error reporting setup to ensure that errors are being captur
   - Verify that the errors appear in ErrorBot with correct details.
   - Check for any missing or incorrect information.
 
-## 8. Categorize Errors Effectively
+### 8. Categorize Errors Effectively
 
 Use the `type` field to categorize errors, which can help in filtering and prioritizing issues.
 
@@ -194,7 +359,7 @@ Use the `type` field to categorize errors, which can help in filtering and prior
   - `warning`: For non-critical issues that should be monitored.
   - `silent`: For informational purposes without alerting.
 
-## 9. Monitor and Act on Reports
+### 9. Monitor and Act on Reports
 
 Regularly review the error reports from ErrorBot and establish a process for addressing them.
 
@@ -203,7 +368,7 @@ Regularly review the error reports from ErrorBot and establish a process for add
   - Assign responsibility for monitoring error reports.
   - Create a feedback loop to fix reported issues promptly.
 
-## 10. Keep the ErrorBot API Key Secure
+### 10. Keep the ErrorBot API Key Secure
 
 Protect your API key to prevent unauthorized use.
 
@@ -212,7 +377,7 @@ Protect your API key to prevent unauthorized use.
   - Use environment variables or secure key management services.
   - Avoid exposing the API key in client-side code (e.g., frontend JavaScript).
 
-## 11. Handle Network Failures Gracefully
+### 11. Handle Network Failures Gracefully
 
 Ensure that your application handles cases where ErrorBot's API might be unreachable.
 
@@ -227,7 +392,7 @@ Ensure that your application handles cases where ErrorBot's API might be unreach
       print(f"Failed to report error to ErrorBot: {e}")
   ```
 
-## 12. Stay Updated with ErrorBot's API Changes
+### 12. Stay Updated with ErrorBot's API Changes
 
 Keep an eye on any updates or changes to the ErrorBot API to maintain compatibility.
 
@@ -236,7 +401,7 @@ Keep an eye on any updates or changes to the ErrorBot API to maintain compatibil
   - Regularly review the API documentation for updates.
   - Update your integration code as needed.
 
-## 13. Optimize for Performance
+### 13. Optimize for Performance
 
 Ensure that error reporting does not significantly impact your application's performance.
 
@@ -245,7 +410,7 @@ Ensure that error reporting does not significantly impact your application's per
   - Batch multiple errors together if appropriate.
   - Monitor the overhead introduced by error reporting.
 
-## 14. Provide User Feedback When Appropriate
+### 14. Provide User Feedback When Appropriate
 
 In user-facing applications, consider informing users when an error has occurred.
 
@@ -260,7 +425,7 @@ In user-facing applications, consider informing users when an error has occurred
   }
   ```
 
-## 15. Customize Error Messages
+### 15. Customize Error Messages
 
 Make error messages as informative as possible without exposing sensitive details.
 
