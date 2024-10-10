@@ -7,7 +7,7 @@ class ErrorBot
   def self.setup
     api_key = 'YOUR_API_KEY_HERE'
     project_name = 'Your Project Name'
-    endpoint = 'https://errorbot.fyi/v1/errors'
+    endpoint = 'https://errorbot.fyi/api/v1/report'
 
     Rails.application.config.middleware.use ExceptionNotification::Rack,
       :error_bot => {
@@ -21,11 +21,7 @@ class ErrorBot
     error_data = {
       message: exception.message,
       type: 'error',
-      project: Rails.application.config.exception_notification[:error_bot][:project],
-      timestamp: Time.now.iso8601,
-      ruby_version: RUBY_VERSION,
-      rails_version: Rails.version,
-      backtrace: exception.backtrace&.join("\n")
+      project: Rails.application.config.exception_notification[:error_bot][:project]
     }
 
     uri = URI(Rails.application.config.exception_notification[:error_bot][:endpoint])
@@ -34,12 +30,22 @@ class ErrorBot
 
     request = Net::HTTP::Post.new(uri.path, {
       'Content-Type' => 'application/json',
-      'Authorization' => "Bearer #{Rails.application.config.exception_notification[:error_bot][:api_key]}"
+      'X-API-Key' => Rails.application.config.exception_notification[:error_bot][:api_key]
     })
     request.body = error_data.to_json
 
     response = http.request(request)
-    Rails.logger.error "Failed to report error to ErrorBot: #{response.body}" unless response.is_a?(Net::HTTPSuccess)
+    
+    if response.is_a?(Net::HTTPSuccess)
+      result = JSON.parse(response.body)
+      if result['success']
+        Rails.logger.info "Error reported successfully to ErrorBot"
+      else
+        Rails.logger.error "Failed to report error to ErrorBot: #{result['error']['message']}"
+      end
+    else
+      Rails.logger.error "Failed to report error to ErrorBot: HTTP #{response.code}"
+    end
   end
 end
 

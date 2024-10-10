@@ -4,7 +4,7 @@ class ErrorBot {
   constructor(apiKey, projectName) {
     this.apiKey = apiKey;
     this.projectName = projectName;
-    this.endpoint = 'https://errorbot.fyi/v1/errors'; // Replace with actual ErrorBot API endpoint
+    this.endpoint = 'https://errorbot.fyi/api/v1/report';
   }
 
   install(Vue) {
@@ -27,20 +27,26 @@ class ErrorBot {
     const errorData = {
       message,
       type,
-      project: this.projectName,
-      timestamp: new Date().toISOString(),
-      vue_version: Vue.version,
-      url: window.location.href
+      project: this.projectName
     };
 
     fetch(this.endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.apiKey}`
+        'X-API-Key': this.apiKey
       },
       body: JSON.stringify(errorData)
-    }).catch(err => console.error('Failed to report error to ErrorBot:', err));
+    })
+    .then(response => response.json())
+    .then(result => {
+      if (result.success) {
+        console.log('Error reported successfully');
+      } else {
+        console.error(`Failed to report error: ${result.error.message}`);
+      }
+    })
+    .catch(err => console.error('Failed to report error to ErrorBot:', err));
   }
 }
 

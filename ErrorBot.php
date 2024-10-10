@@ -4,7 +4,7 @@
 class ErrorBot {
     private $apiKey;
     private $projectName;
-    private $endpoint = 'https://errorbot.fyi/v1/errors'; // Replace with actual ErrorBot API endpoint
+    private $endpoint = 'https://errorbot.fyi/api/v1/report';
 
     public function __construct($apiKey, $projectName) {
         $this->apiKey = $apiKey;
@@ -28,10 +28,7 @@ class ErrorBot {
         $errorData = [
             'message' => $message,
             'type' => $type,
-            'project' => $this->projectName,
-            'timestamp' => date('c'),
-            'php_version' => PHP_VERSION,
-            'server' => $_SERVER['SERVER_SOFTWARE'] ?? 'Unknown'
+            'project' => $this->projectName
         ];
 
         $ch = curl_init($this->endpoint);
@@ -39,13 +36,20 @@ class ErrorBot {
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($errorData));
         curl_setopt($ch, CURLOPT_HTTPHEADER, [
             'Content-Type: application/json',
-            "Authorization: Bearer {$this->apiKey}"
+            "X-API-Key: {$this->apiKey}"
         ]);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 
         $response = curl_exec($ch);
         if (curl_errno($ch)) {
             error_log('Failed to report error to ErrorBot: ' . curl_error($ch));
+        } else {
+            $result = json_decode($response, true);
+            if ($result['success']) {
+                error_log('Error reported successfully');
+            } else {
+                error_log('Failed to report error: ' . $result['error']['message']);
+            }
         }
         curl_close($ch);
     }

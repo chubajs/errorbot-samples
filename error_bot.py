@@ -8,7 +8,7 @@ class ErrorBot:
     def __init__(self, api_key, project_name):
         self.api_key = api_key
         self.project_name = project_name
-        self.endpoint = 'https://errorbot.fyi/v1/errors'
+        self.endpoint = 'https://errorbot.fyi/api/v1/report'
 
     def init(self):
         sys.excepthook = self.handle_exception
@@ -25,9 +25,7 @@ class ErrorBot:
         error_data = {
             'message': message,
             'type': error_type,
-            'project': self.project_name,
-            'timestamp': datetime.utcnow().isoformat(),
-            'python_version': sys.version,
+            'project': self.project_name
         }
 
         try:
@@ -36,10 +34,15 @@ class ErrorBot:
                 json=error_data,
                 headers={
                     'Content-Type': 'application/json',
-                    'Authorization': f'Bearer {self.api_key}'
+                    'X-API-Key': self.api_key
                 }
             )
             response.raise_for_status()
+            result = response.json()
+            if result['success']:
+                print("Error reported successfully")
+            else:
+                print(f"Failed to report error: {result['error']['message']}")
         except requests.RequestException as e:
             print(f"Failed to report error to ErrorBot: {e}", file=sys.stderr)
 

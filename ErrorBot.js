@@ -1,12 +1,13 @@
 // ErrorBot integration for Node.js
 
 const https = require('https');
+const url = require('url');
 
 class ErrorBot {
   constructor(apiKey, projectName) {
     this.apiKey = apiKey;
     this.projectName = projectName;
-    this.endpoint = 'https://errorbot.fyi/v1/errors';
+    this.endpoint = 'https://errorbot.fyi/api/v1/report';
   }
 
   init() {
@@ -24,23 +25,37 @@ class ErrorBot {
     const errorData = {
       message,
       type,
-      project: this.projectName,
-      timestamp: new Date().toISOString(),
-      node_version: process.version,
+      project: this.projectName
     };
 
+    const parsedUrl = url.parse(this.endpoint);
     const options = {
       method: 'POST',
+      hostname: parsedUrl.hostname,
+      path: parsedUrl.path,
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.apiKey}`
+        'X-API-Key': this.apiKey
       }
     };
 
-    const req = https.request(this.endpoint, options, (res) => {
-      if (res.statusCode !== 200) {
-        console.error(`Failed to report error to ErrorBot: HTTP ${res.statusCode}`);
-      }
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', (chunk) => {
+        data += chunk;
+      });
+      res.on('end', () => {
+        try {
+          const result = JSON.parse(data);
+          if (result.success) {
+            console.log('Error reported successfully');
+          } else {
+            console.error(`Failed to report error: ${result.error.message}`);
+          }
+        } catch (e) {
+          console.error('Failed to parse ErrorBot response:', e);
+        }
+      });
     });
 
     req.on('error', (error) => {
